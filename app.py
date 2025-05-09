@@ -34,7 +34,7 @@ def webhook():
 
         order = api.submit_order(
             symbol=symbol,
-            qty=notional,
+            notional=notional,
             side=action,
             type='market',
             time_in_force='gtc',
