@@ -37,7 +37,7 @@ def webhook():
             qty=quantity,
             side=action,
             type='market',
-            time_in_force='gtc'
+            time_in_force='gtc',
             extended_hours=True
         )
         print(f"Order submitted: {order}")
