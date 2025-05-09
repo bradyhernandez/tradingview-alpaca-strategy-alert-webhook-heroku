@@ -1,5 +1,3 @@
-REGULAR TRADING HOURS - working
-
 from flask import Flask, request
 import os
 import json
@@ -29,7 +27,7 @@ def webhook():
 
         symbol = data['symbol']
         action = data['action'].lower()
-        quantity = int(data.get('quantity', 1))
+        notational = int(data.get('notational', 1))
 
         if action not in ['buy', 'sell']:
             return f"Invalid action: {action}", 400
