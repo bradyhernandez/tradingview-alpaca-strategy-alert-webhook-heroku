@@ -3,51 +3,65 @@ import os
 import json
 import alpaca_trade_api as tradeapi
 
+# Initialize the Flask application
 app = Flask(__name__)
 
-# Load Alpaca credentials from environment variables
-API_KEY = os.getenv('APCA_API_KEY_ID')
-SECRET_KEY = os.getenv('APCA_API_SECRET_KEY')
-BASE_URL = os.getenv('APCA_API_BASE_URL', 'https://paper-api.alpaca.markets')  # default to paper trading
+# Load Alpaca API credentials from environment variables
+API_KEY = os.getenv("APCA_API_KEY_ID")
+SECRET_KEY = os.getenv("APCA_API_SECRET_KEY")
+BASE_URL = "https://paper-api.alpaca.markets"
 
-# Initialize Alpaca API
+# Initialize Alpaca API client
 api = tradeapi.REST(API_KEY, SECRET_KEY, BASE_URL, api_version='v2')
 
-
-@app.route('/')
-def index():
-    return "Webhook listener running. POST alerts to /webhook."
-
-
+# Webhook endpoint to receive TradingView alerts
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:
-        data = request.json
-        print(f"Webhook received:\n{json.dumps(data, indent=2)}")
+        data = request.get_json()
 
-        symbol = data['symbol']
-        action = data['action'].lower()
-        quantity = int(data.get('quantity', 1))
+        # Log the webhook data for debugging
+        print(f"Webhook received: {json.dumps(data, indent=2)}")
 
-        if action not in ['buy', 'sell']:
-            return f"Invalid action: {action}", 400
+        symbol = data.get('symbol')
+        action = data.get('action')
+        quantity = data.get('quantity', 1)  # default to 1 if not provided
 
-        order = api.submit_order(
-            symbol=symbol,
-            qty=quantity,
-            side=action,
-            type='market',
-            time_in_force='gtc'
-        )
-        print(f"Order submitted: {order}")
-        return f"{action.upper()} order for {quantity} shares of {symbol} placed.", 200
+        if not symbol or not action:
+            return "Invalid data", 400
+
+        if action == 'buy':
+            api.submit_order(
+                symbol=symbol,
+                qty=quantity,
+                side='buy',
+                type='market',
+                time_in_force='gtc',
+                extended_hours=True
+            )
+            print(f"Buy order placed for {quantity} shares of {symbol}")
+
+        elif action == 'sell':
+            api.submit_order(
+                symbol=symbol,
+                qty=quantity,
+                side='sell',
+                type='market',
+                time_in_force='gtc',
+                extended_hours=True
+            )
+            print(f"Sell order placed for {quantity} shares of {symbol}")
+
+        else:
+            return "Invalid action", 400
+
+        return 'Webhook received and processed', 200
 
     except Exception as e:
-        print(f"Error processing webhook: {e}")
+        print(f"Error: {e}")
         return "Error processing the webhook", 500
 
-
-# Required for Render — bind to the port Render sets
+# Run the app on the appropriate port for Render
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))  # default to 10000 if PORT is not set
+    port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
