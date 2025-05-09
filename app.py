@@ -1,42 +1,70 @@
-from flask import Flask, render_template, request
+from flask import Flask, request
+import os
+import json
 import alpaca_trade_api as tradeapi
-import config, json, requests
 
+# Initialize the Flask application
 app = Flask(__name__)
 
-api = tradeapi.REST(config.API_KEY, config.API_SECRET, base_url='https://paper-api.alpaca.markets')
+# Alpaca API keys (make sure to set them as environment variables in Render)
+ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
+ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
 
-@app.route('/')
-def dashboard():
-    orders = api.list_orders()
-    
-    return render_template('dashboard.html', alpaca_orders=orders)
+# Initialize Alpaca API client
+api = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, base_url="https://paper-api.alpaca.markets")
 
+# Define the /webhook route to handle TradingView alerts
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    webhook_message = json.loads(request.data)
+    try:
+        data = request.get_json()  # Get JSON data sent by TradingView
 
-    if webhook_message['passphrase'] != config.WEBHOOK_PASSPHRASE:
-        return {
-            'code': 'error',
-            'message': 'nice try buddy'
-        }
-    
-    price = webhook_message['strategy']['order_price']
-    quantity = webhook_message['strategy']['order_contracts']
-    symbol = webhook_message['ticker']
-    side = webhook_message['strategy']['order_action']
-    
-    order = api.submit_order(symbol, quantity, side, 'limit', 'gtc', limit_price=price)
+        # Print data for debugging
+        print(f"Webhook received: {json.dumps(data, indent=2)}")
 
-    # if a DISCORD URL is set in the config file, we will post to the discord webhook
-    if config.DISCORD_WEBHOOK_URL:
-        chat_message = {
-            "username": "strategyalert",
-            "avatar_url": "https://i.imgur.com/4M34hi2.png",
-            "content": f"tradingview strategy alert triggered: {quantity} {symbol} @ {price}"
-        }
+        # Example: Check if the alert contains specific information (e.g., action and symbol)
+        symbol = data.get('symbol')
+        action = data.get('action')
+        quantity = data.get('quantity', 1)  # Default to 1 if quantity is not provided
 
-        requests.post(config.DISCORD_WEBHOOK_URL, json=chat_message)
+        if not symbol or not action:
+            return "Invalid data", 400
 
-    return webhook_message
+        # Example: Trade logic based on the action received (buy or sell)
+        if action == 'buy':
+            # Example: Buying the specified symbol
+            api.submit_order(
+                symbol=symbol,
+                qty=quantity,
+                side='buy',
+                type='market',
+                time_in_force='gtc'
+            )
+            print(f"Buy order placed for {quantity} shares of {symbol}")
+
+        elif action == 'sell':
+            # Example: Selling the specified symbol
+            api.submit_order(
+                symbol=symbol,
+                qty=quantity,
+                side='sell',
+                type='market',
+                time_in_force='gtc'
+            )
+            print(f"Sell order placed for {quantity} shares of {symbol}")
+
+        else:
+            return "Invalid action", 400
+
+        return 'Webhook received and processed', 200
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return "Error processing the webhook", 500
+
+
+# Ensure the app listens on the correct port (port 10000 on Render)
+if __name__ == '__main__':
+    # Get the port from the environment variable (Render sets this automatically)
+    port = int(os.environ.get('PORT', 10000))  # Default to 10000 if no PORT is set
+    app.run(host='0.0.0.0', port=port)  # Make sure it listens on all available interfaces (0.0.0.0)
