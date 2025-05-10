@@ -27,7 +27,7 @@ def webhook():
 
         symbol = data['symbol']
         action = data['action'].lower()
-        notational = int(data.get('notational', 1))
+        notional = int(data.get('notional', 1))
 
         if action not in ['buy', 'sell']:
             return f"Invalid action: {action}", 400
@@ -41,7 +41,7 @@ def webhook():
             extended_hours=True
         )
         print(f"Order submitted: {order}")
-        return f"{action.upper()} order for {notational} shares of {symbol} placed.", 200
+        return f"{action.upper()} order for {notional} shares of {symbol} placed.", 200
 
     except Exception as e:
         print(f"Error processing webhook: {e}")
